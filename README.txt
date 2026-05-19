@@ -1,65 +1,120 @@
-# Team Task Manager
+# 🚀 Team Task Manager
 
-A full-stack web application designed to help teams manage projects, assign tasks, and track their progress effectively. 
+A modern full-stack team collaboration and project management platform built using **React, Node.js, Express, Prisma, and PostgreSQL**.  
+The application enables teams to efficiently manage projects, assign tasks, monitor progress, and collaborate through a clean and responsive interface.
 
-## 🚀 Features
+---
 
-- **Authentication**: Secure Login and Registration with role selection.
-- **Role-Based Access Control**:
-  - **Admin**: Can create projects and assign tasks.
-  - **Member**: Can view assigned tasks and update task statuses.
-- **Project Management**: View all projects, and details like active tasks count and creation dates.
-- **Kanban Task Board**: Drag-and-drop tasks to update statuses (TODO, IN_PROGRESS, DONE).
-- **Interactive Dashboard**: Quick statistics on tasks and projects.
-- **Modern UI**: Custom-built Dark Mode aesthetics with glassmorphism effects using Vanilla CSS.
+# 🌐 Live Demo
 
-## 🛠️ Tech Stack
+🔗 Live Application:  
+https://etharateamtasker-production-131f.up.railway.app
 
-- **Frontend**: React (Vite), React Router DOM, Vanilla CSS, Lucide React (Icons).
-- **Backend**: Node.js, Express.js.
-- **Database & ORM**: SQLite, Prisma.
-- **Authentication**: JSON Web Tokens (JWT), bcrypt.
+---
 
-## 📦 Local Setup Instructions
+# 📂 GitHub Repository
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository_url>
-   cd Ethara_Assessment
-   ```
+🔗 Repository Link:  
+https://github.com/Shanksreddy005/Ethara_Team_Tasker
 
-2. **Install dependencies:**
-   ```bash
-   npm install
-   ```
+---
 
-3. **Set up Environment Variables:**
-   Create a `.env` file in the `server` directory and add:
-   ```env
-   DATABASE_URL="file:./dev.db"
-   JWT_SECRET="your_super_secret_key"
-   PORT=3000
-   ```
+# ✨ Features
 
-4. **Run Prisma Migrations:**
-   ```bash
-   cd server
-   npx prisma migrate dev --name init
-   ```
+## 🔐 Authentication & Security
+- User Registration & Login
+- JWT-based Authentication
+- Password hashing using bcrypt
+- Protected API routes
 
-5. **Start Development Servers:**
-   - For backend: `cd server && npm run dev`
-   - For frontend: `cd client && npm run dev`
+---
 
-## 🌐 Railway Deployment
+## 👥 Role-Based Access Control
 
-This project is configured as a monorepo for seamless deployment on Railway:
+### 👨‍💼 Admin
+- Create Projects
+- Assign Tasks
+- View All Users
+- Monitor Task Progress
+- Manage Team Workflow
 
-1. Connect your GitHub repository to Railway.
-2. Railway will automatically detect the root `package.json`.
-3. Add the `JWT_SECRET` environment variable in Railway.
-4. The deployment will install dependencies, build the Vite frontend, and start the Express server, serving the client assets directly from `client/dist`.
+### 👨‍💻 Member
+- View Assigned Tasks
+- Update Task Status
+- Track Personal Progress
 
-## 📹 Demo Video
+---
 
-*(Add your 2-5 min demo video link here)*
+## 📋 Project Management
+- Create and manage projects
+- View project details
+- Monitor project progress
+- Active task tracking
+
+---
+
+## ✅ Task Management
+- Kanban-style workflow
+- Drag-and-drop interaction
+- Task status updates:
+  - TODO
+  - IN_PROGRESS
+  - DONE
+
+---
+
+## 📊 Interactive Dashboard
+- Total Tasks Overview
+- Completed Tasks Analytics
+- In Progress Tracking
+- Project Statistics
+
+---
+
+## 🎨 Modern UI/UX
+- Responsive Design
+- Dark Theme
+- Glassmorphism-inspired UI
+- Smooth user experience
+
+---
+
+# 🛠️ Tech Stack
+
+## Frontend
+- React
+- Vite
+- React Router DOM
+- Vanilla CSS
+- Lucide React Icons
+
+## Backend
+- Node.js
+- Express.js
+
+## Database & ORM
+- PostgreSQL (Production)
+- SQLite (Local Development)
+- Prisma ORM
+
+## Authentication
+- JWT (JSON Web Tokens)
+- bcrypt
+
+## Deployment
+- Railway
+
+---
+
+# 📁 Project Structure
+
+```bash
+Ethara_Assessment/
+│
+├── client/             # React Frontend
+├── server/             # Express Backend
+│   ├── prisma/         # Prisma Schema & Migrations
+│   └── index.js
+│
+├── package.json
+└── README.md
