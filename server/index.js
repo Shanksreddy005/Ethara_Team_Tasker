@@ -7,22 +7,37 @@ const { PrismaClient } = require('@prisma/client');
 const path = require('path');
 
 dotenv.config();
+
 const app = express();
 const prisma = new PrismaClient();
+
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
+
+// =======================
+// MIDDLEWARE
+// =======================
 
 app.use(cors());
 app.use(express.json());
 
-// Auth Middleware
+// =======================
+// AUTH MIDDLEWARE
+// =======================
+
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.sendStatus(401);
+
+  if (!token) {
+    return res.sendStatus(401);
+  }
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) {
+      return res.sendStatus(403);
+    }
+
     req.user = user;
     next();
   });
@@ -30,10 +45,24 @@ const authenticateToken = (req, res, next) => {
 
 const requireAdmin = (req, res, next) => {
   if (req.user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Requires admin privileges' });
+    return res.status(403).json({
+      error: 'Requires admin privileges'
+    });
   }
+
   next();
 };
+
+// =======================
+// HEALTH CHECK
+// =======================
+
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Server is running'
+  });
+});
 
 // =======================
 // AUTH ROUTES
@@ -41,57 +70,174 @@ const requireAdmin = (req, res, next) => {
 
 app.post('/api/auth/register', async (req, res) => {
   try {
+    console.log('REGISTER BODY:', req.body);
+
     const { name, email, password, role } = req.body;
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) return res.status(400).json({ error: 'Email already exists' });
+
+    if (!name || !email || !password) {
+      return res.status(400).json({
+        error: 'All fields are required'
+      });
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        error: 'Email already exists'
+      });
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const userRole = role === 'ADMIN' ? 'ADMIN' : 'MEMBER';
+
+    const userRole =
+      role === 'ADMIN' ? 'ADMIN' : 'MEMBER';
 
     const user = await prisma.user.create({
-      data: { name, email, password: hashedPassword, role: userRole }
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        role: userRole
+      }
     });
-    
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-    res.status(201).json({ token, user: { id: user.id, name: user.name, role: user.role, email: user.email } });
+
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        role: user.role
+      },
+      JWT_SECRET,
+      {
+        expiresIn: '24h'
+      }
+    );
+
+    res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('REGISTER ERROR:', error);
+
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const user = await prisma.user.findUnique({ where: { email } });
-    
-    if (!user) return res.status(400).json({ error: 'Invalid credentials' });
-    
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) return res.status(400).json({ error: 'Invalid credentials' });
+    console.log('LOGIN BODY:', req.body);
 
-    const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, user: { id: user.id, name: user.name, role: user.role, email: user.email } });
+    const { email, password } = req.body;
+
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        error: 'Invalid credentials'
+      });
+    }
+
+    const validPassword = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!validPassword) {
+      return res.status(400).json({
+        error: 'Invalid credentials'
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user.id,
+        role: user.role
+      },
+      JWT_SECRET,
+      {
+        expiresIn: '24h'
+      }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+    console.error('LOGIN ERROR:', error);
+
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
 // =======================
 // DASHBOARD
 // =======================
+
 app.get('/api/dashboard', authenticateToken, async (req, res) => {
   try {
     let taskWhere = {};
+
     if (req.user.role !== 'ADMIN') {
-      taskWhere = { assignedToId: req.user.userId };
+      taskWhere = {
+        assignedToId: req.user.userId
+      };
     }
 
-    const [totalTasks, completedTasks, todoTasks, inProgressTasks, usersCount, projectsCount] = await Promise.all([
-      prisma.task.count({ where: taskWhere }),
-      prisma.task.count({ where: { ...taskWhere, status: 'DONE' } }),
-      prisma.task.count({ where: { ...taskWhere, status: 'TODO' } }),
-      prisma.task.count({ where: { ...taskWhere, status: 'IN_PROGRESS' } }),
+    const [
+      totalTasks,
+      completedTasks,
+      todoTasks,
+      inProgressTasks,
+      usersCount,
+      projectsCount
+    ] = await Promise.all([
+      prisma.task.count({
+        where: taskWhere
+      }),
+
+      prisma.task.count({
+        where: {
+          ...taskWhere,
+          status: 'DONE'
+        }
+      }),
+
+      prisma.task.count({
+        where: {
+          ...taskWhere,
+          status: 'TODO'
+        }
+      }),
+
+      prisma.task.count({
+        where: {
+          ...taskWhere,
+          status: 'IN_PROGRESS'
+        }
+      }),
+
       prisma.user.count(),
+
       prisma.project.count()
     ]);
 
@@ -104,7 +250,11 @@ app.get('/api/dashboard', authenticateToken, async (req, res) => {
       projectsCount
     });
   } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
@@ -116,31 +266,57 @@ app.get('/api/projects', authenticateToken, async (req, res) => {
   try {
     const projects = await prisma.project.findMany({
       include: {
-        createdBy: { select: { id: true, name: true } },
-        _count: { select: { tasks: true } }
+        createdBy: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+
+        _count: {
+          select: {
+            tasks: true
+          }
+        }
       }
     });
+
     res.json(projects);
   } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
   }
 });
 
-app.post('/api/projects', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const { name, description } = req.body;
-    const project = await prisma.project.create({
-      data: {
-        name,
-        description,
-        createdById: req.user.userId
-      }
-    });
-    res.status(201).json(project);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
+app.post(
+  '/api/projects',
+  authenticateToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { name, description } = req.body;
+
+      const project = await prisma.project.create({
+        data: {
+          name,
+          description,
+          createdById: req.user.userId
+        }
+      });
+
+      res.status(201).json(project);
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        error: error.message
+      });
+    }
   }
-});
+);
 
 // =======================
 // TASKS
@@ -149,87 +325,98 @@ app.post('/api/projects', authenticateToken, requireAdmin, async (req, res) => {
 app.get('/api/tasks', authenticateToken, async (req, res) => {
   try {
     const { projectId } = req.query;
+
     let whereClause = {};
-    if (projectId) whereClause.projectId = parseInt(projectId);
-    
+
+    if (projectId) {
+      whereClause.projectId = parseInt(projectId);
+    }
+
     if (req.user.role !== 'ADMIN') {
       whereClause.assignedToId = req.user.userId;
     }
 
     const tasks = await prisma.task.findMany({
       where: whereClause,
+
       include: {
-        project: { select: { id: true, name: true } },
-        assignedTo: { select: { id: true, name: true } }
+        project: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+
+        assignedTo: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
       }
     });
+
     res.json(tasks);
   } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+    console.error(error);
 
-app.post('/api/tasks', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const { title, description, projectId, assignedToId, dueDate } = req.body;
-    const task = await prisma.task.create({
-      data: {
-        title,
-        description,
-        projectId: parseInt(projectId),
-        assignedToId: assignedToId ? parseInt(assignedToId) : null,
-        dueDate: dueDate ? new Date(dueDate) : null
-      }
+    res.status(500).json({
+      error: error.message
     });
-    res.status(201).json(task);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.put('/api/tasks/:id/status', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body; // TODO, IN_PROGRESS, DONE
+// =======================
+// USERS
+// =======================
 
-    const task = await prisma.task.findUnique({ where: { id: parseInt(id) } });
-    if (!task) return res.status(404).json({ error: 'Task not found' });
+app.get(
+  '/api/users',
+  authenticateToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const users = await prisma.user.findMany({
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true
+        }
+      });
 
-    // Ensure member only updates their own task, Admin can update any
-    if (req.user.role !== 'ADMIN' && task.assignedToId !== req.user.userId) {
-      return res.status(403).json({ error: 'Forbidden' });
+      res.json(users);
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).json({
+        error: error.message
+      });
     }
-
-    const updatedTask = await prisma.task.update({
-      where: { id: parseInt(id) },
-      data: { status }
-    });
-    res.json(updatedTask);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
   }
-});
+);
 
 // =======================
-// USERS (For Task Assignment)
+// SERVE FRONTEND
 // =======================
-app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const users = await prisma.user.findMany({ select: { id: true, name: true, email: true, role: true } });
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
 
-// Serve static assets in production
-const clientDistPath = path.join(__dirname, '../client/dist');
+const clientDistPath = path.join(
+  __dirname,
+  '../client/dist'
+);
+
 app.use(express.static(clientDistPath));
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(clientDistPath, 'index.html'));
+app.use((req, res) => {
+  res.sendFile(
+    path.join(clientDistPath, 'index.html')
+  );
 });
 
-app.listen(PORT, () => {
+// =======================
+// START SERVER
+// =======================
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on port ${PORT}`);
 });
